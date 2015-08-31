@@ -84,7 +84,7 @@ class DIAMETER_EAP_CLIENT_EXPORTS DiameterEapClientStateMachine
     handle.Job().Remove(this); 
   }
 
-  enum {
+  typedef enum {
     //    EvSgStartLocalMethod,
     EvSgStart=-1,
     EvRxEapResponse=-2,
@@ -95,7 +95,7 @@ class DIAMETER_EAP_CLIENT_EXPORTS DiameterEapClientStateMachine
     EvSgAuthGracePeriodTimeout=-7,
     EvSgTimeout=-8,
     EvSgDisconnect=-9
-  };
+  }DiameterEvent;
 
   /// Reimplemented from AAA_StateMachine
   //  void Start() throw (AAA_Error);
