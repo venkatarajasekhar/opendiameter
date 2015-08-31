@@ -55,14 +55,15 @@ class DiameterEapClientSession;
 class DIAMETER_EAP_CLIENT_EXPORTS DEA_Handler : 
     public AAASessionMessageHandler
 {
+  
+  AAAReturnCode HandleMessage (DiameterMsg &msg);
+  DiameterEapClientSession &session;
  public:
   DEA_Handler(AAAApplicationCore &appCore, DiameterEapClientSession &s) 
     : AAASessionMessageHandler(appCore, EapCommandCode),
       session(s)
   {}
- private:
-  AAAReturnCode HandleMessage (DiameterMsg &msg);
-  DiameterEapClientSession &session;
+
 };
 
 /// Client Diameter EAP session.  This class is defined as multiple
@@ -71,6 +72,7 @@ class DIAMETER_EAP_CLIENT_EXPORTS DEA_Handler :
 class DIAMETER_EAP_CLIENT_EXPORTS DiameterEapClientSession : 
     public AAAClientSession, public DiameterEapClientStateMachine
 {
+  DEA_Handler answerHandler;
  public:
 
   /// Constuctor.
@@ -127,9 +129,7 @@ class DIAMETER_EAP_CLIENT_EXPORTS DiameterEapClientSession :
   }
 
  protected:
- private:
 
-  DEA_Handler answerHandler;
 };
 
 #endif
