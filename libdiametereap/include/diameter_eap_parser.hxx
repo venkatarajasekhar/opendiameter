@@ -50,6 +50,16 @@ const diameter_unsigned32_t EapApplicationId = 5;
 const AAACommandCode EapCommandCode = 268;
 
 #if 0
+
+typedef AAAParser<DiameterMsg*, DER_Data*> DER_Parser;
+typedef AAAParser<DiameterMsg*, DEA_Data*> DEA_Parser;
+
+template<> void DER_Parser::parseRawToApp();
+template<> void DER_Parser::parseAppToRaw();
+
+template<> void DEA_Parser::parseRawToApp();
+template<> void DEA_Parser::parseAppToRaw();
+
 /// Definition for Tunneling AVP internal structure.
 class tunneling_t
 {
@@ -726,14 +736,5 @@ class DEA_Data
   //  -- std::vector<diameter_utf8string_t> ConnectInfo;
   //  -- std::vector<diameter_identity_t> RouteRecord;
 };
-
-typedef AAAParser<DiameterMsg*, DER_Data*> DER_Parser;
-typedef AAAParser<DiameterMsg*, DEA_Data*> DEA_Parser;
-
-template<> void DER_Parser::parseRawToApp();
-template<> void DER_Parser::parseAppToRaw();
-
-template<> void DEA_Parser::parseRawToApp();
-template<> void DEA_Parser::parseAppToRaw();
 
 #endif //__EAP_CLIENT_DATA_H__
