@@ -99,7 +99,37 @@ class DIAMETER_EAP_SERVER_EXPORTS DiameterEapServerStateMachine
   : public AAA_StateMachine<DiameterEapServerStateMachine>,
     public AAA_EventQueueJob
 {
+  DiameterEapServerSession& session;
+  /// Job handle.
+  DiameterJobHandle handle;
+  bool authorizationDone;
+  /// DER and DEA packet data.
+  DER_Data derData;
+  DEA_Data deaData;
+ 
   friend class DiameterJobMultiplexor;
+  /// Inherited from AAA_EventQueueJob.  Not used.
+  int Schedule(AAA_Job*, size_t=1) { return (-1); }
+
+  /// Inherited from AAA_EventQueueJob.
+  inline int Serve()
+  {
+    if (!AAA_EventQueueJob::ExistBacklog())
+      {
+	AAA_LOG((LM_ERROR, "%N: no backlog to serve."));
+	return 0;
+      }
+
+    // Obtain the event to execute.
+    AAA_Event ev = 0;
+    AAA_EventQueueJob::Dequeue(ev);
+
+    bool existBacklog = AAA_EventQueueJob::ExistBacklog();
+
+    // Execute it.
+    Event(ev);
+    return existBacklog ? 1 : 0;
+  }
 
  public:
   /// Constructor.
@@ -587,39 +617,6 @@ class DIAMETER_EAP_SERVER_EXPORTS DiameterEapServerStateMachine
 
  protected:
 
- private:
-  /// Inherited from AAA_EventQueueJob.  Not used.
-  int Schedule(AAA_Job*, size_t=1) { return (-1); }
-
-  /// Inherited from AAA_EventQueueJob.
-  inline int Serve()
-  {
-    if (!AAA_EventQueueJob::ExistBacklog())
-      {
-	AAA_LOG((LM_ERROR, "%N: no backlog to serve."));
-	return 0;
-      }
-
-    // Obtain the event to execute.
-    AAA_Event ev = 0;
-    AAA_EventQueueJob::Dequeue(ev);
-
-    bool existBacklog = AAA_EventQueueJob::ExistBacklog();
-
-    // Execute it.
-    Event(ev);
-    return existBacklog ? 1 : 0;
-  }
-
-  DiameterEapServerSession& session;
-  /// Job handle.
-  DiameterJobHandle handle;
-
-  bool authorizationDone;
-
-  /// DER and DEA packet data.
-  DER_Data derData;
-  DEA_Data deaData;
 };
 
 #endif
