@@ -62,6 +62,15 @@
 typedef AAA_JobHandle<AAA_GroupedJob> DiameterJobHandle;
 
 class DiameterEapClientSession;
+DiameterEapClientSession &session;
+
+  /// Job handle.
+  DiameterJobHandle handle;
+
+  /// DER and DEA packet data.
+  DER_Data derData;
+  DEA_Data deaData;
+  // XXX: AA_AnswerData aaAnswerData;
 
 /// State machine for Diameter EAP clients.  It has many member
 /// functions for enforcement of attributes (i.e., EnforceXYZ) and 
@@ -73,6 +82,27 @@ class DIAMETER_EAP_CLIENT_EXPORTS DiameterEapClientStateMachine
     public AAA_EventQueueJob
 {
   friend class DiameterJobMultiplexor;
+  /// Inherited from AAA_EventQueueJob.
+  int Schedule(AAA_Job *job, size_t=1) { return (-1); }
+
+  /// Inherited from AAA_EventQueueJob.
+  inline int Serve()
+  {
+    if (!AAA_EventQueueJob::ExistBacklog())
+      {
+	AAA_LOG((LM_ERROR, "%N: no backlog to serve."));
+	return 0;
+      }
+
+    // Obtain the event to execute.
+    AAA_Event ev = 0;
+    AAA_EventQueueJob::Dequeue(ev);
+
+    bool existBacklog = AAA_EventQueueJob::ExistBacklog();
+
+    // Execute it.
+    Event(ev);
+    return existBacklog ? 1 : 0;
 
  public:
   /// Constructor.
@@ -598,41 +628,7 @@ class DIAMETER_EAP_CLIENT_EXPORTS DiameterEapClientStateMachine
   DEA_Data& DEA() { return deaData; }
 
  protected:
-
- private:
-  /// Inherited from AAA_EventQueueJob.
-  int Schedule(AAA_Job *job, size_t=1) { return (-1); }
-
-  /// Inherited from AAA_EventQueueJob.
-  inline int Serve()
-  {
-    if (!AAA_EventQueueJob::ExistBacklog())
-      {
-	AAA_LOG((LM_ERROR, "%N: no backlog to serve."));
-	return 0;
-      }
-
-    // Obtain the event to execute.
-    AAA_Event ev = 0;
-    AAA_EventQueueJob::Dequeue(ev);
-
-    bool existBacklog = AAA_EventQueueJob::ExistBacklog();
-
-    // Execute it.
-    Event(ev);
-    return existBacklog ? 1 : 0;
   }
-
-  DiameterEapClientSession &session;
-
-  /// Job handle.
-  DiameterJobHandle handle;
-
-  /// DER and DEA packet data.
-  DER_Data derData;
-  DEA_Data deaData;
-  // XXX: AA_AnswerData aaAnswerData;
-
 };
 
 #endif
