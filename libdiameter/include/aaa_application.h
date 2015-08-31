@@ -44,11 +44,19 @@
 // that operates using an instance of the core. 
 class DIAMETERBASEPROTOCOL_EXPORT DiameterApplication :
     public AAA_JobData
-{
+    {
+ 
+     // Global Classes
+        AAA_Task &m_Task;
+        DiameterPeerAcceptor m_PeerAcceptor;
+        DiameterSessionMsgRx m_SessionMsgRx;
+        Diameter_IO_SigMask m_IOSigMask;
+        ReTransmissionTimerHandler m_ReTxHandler;
     private: // General Timer hanlders
         class ReTransmissionTimerHandler : 
             public ACE_Event_Handler 
         {
+            long m_TimerHandle;
             public:
                int handle_timeout(const ACE_Time_Value &tv, 
                                   const void *arg) {
@@ -58,8 +66,7 @@ class DIAMETERBASEPROTOCOL_EXPORT DiameterApplication :
                long &Handle() {
                    return m_TimerHandle;
                }
-            private:
-               long m_TimerHandle;
+            
         };
 
     public:
@@ -100,13 +107,6 @@ class DIAMETERBASEPROTOCOL_EXPORT DiameterApplication :
         AAA_Task& Task() {
             return m_Task;
         }
-
-    private: // Global Classes
-        AAA_Task &m_Task;
-        DiameterPeerAcceptor m_PeerAcceptor;
-        DiameterSessionMsgRx m_SessionMsgRx;
-        Diameter_IO_SigMask m_IOSigMask;
-        ReTransmissionTimerHandler m_ReTxHandler;
 };
 
 #endif   // __AAA_APPLICATION_H__ 
