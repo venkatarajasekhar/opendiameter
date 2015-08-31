@@ -51,17 +51,21 @@
 
 class DiameterEapClientSession;
 
+typedef DIAMETER_EAP_SERVER_EXPORTS 
+AAAServerSessionClassFactory<DiameterEapServerSession>
+DiameterEapServerFactory;
+
 /// DER Message Handler
 class DIAMETER_EAP_SERVER_EXPORTS DER_Handler : public AAASessionMessageHandler
 {
+  AAAReturnCode HandleMessage (DiameterMsg &msg);
+  DiameterEapServerSession &session;
  public:
   DER_Handler(AAAApplicationCore &appCore, DiameterEapServerSession &s) 
     : AAASessionMessageHandler(appCore, EapCommandCode),
       session(s)
   {}
- private:
-  AAAReturnCode HandleMessage (DiameterMsg &msg);
-  DiameterEapServerSession &session;
+ 
 };
 
 /// Diameter EAP Server session.  This class is defined as multiple
@@ -70,8 +74,8 @@ class DIAMETER_EAP_SERVER_EXPORTS DER_Handler : public AAASessionMessageHandler
 class DIAMETER_EAP_SERVER_EXPORTS DiameterEapServerSession : 
     public AAAServerSession, public DiameterEapServerStateMachine
 {
- public:
-
+  DER_Handler requestHandler;
+  public:
   /// Constuctor.
   DiameterEapServerSession
   (AAAApplicationCore &appCore, 
@@ -112,13 +116,6 @@ class DIAMETER_EAP_SERVER_EXPORTS DiameterEapServerSession :
   }
 
  protected:
- private:
 
-  DER_Handler requestHandler;
 };
-
-typedef DIAMETER_EAP_SERVER_EXPORTS 
-AAAServerSessionClassFactory<DiameterEapServerSession>
-DiameterEapServerFactory;
-
 #endif
