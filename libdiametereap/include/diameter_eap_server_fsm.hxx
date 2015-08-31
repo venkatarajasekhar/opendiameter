@@ -111,7 +111,7 @@ class DIAMETER_EAP_SERVER_EXPORTS DiameterEapServerStateMachine
     handle.Job().Remove(this); 
   }
 
-  enum {
+  typedef enum {
     EvSgStart,
     EvRxEapRequest,
     EvRxEapSuccess,
@@ -126,7 +126,7 @@ class DIAMETER_EAP_SERVER_EXPORTS DiameterEapServerStateMachine
     EvSgDisconnect,
     EvSgValidDER,
     EvSgInvalidDER
-  };
+  }DiaEventStatus;
 
   /// Store an event and notify the session.
   inline void Notify(AAA_Event ev) throw (int) {
