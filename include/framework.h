@@ -61,6 +61,41 @@
 
 /// Logging facility.
 #define FRAMEWORK_LOG ACE_Log_Msg::instance()->log
+/// Scheduling policy.  AAA_SCHED_WFQ and AAA_SCHED_PRIORITY can be
+/// specified at the same time by specifying with (AAA_SCHED_WFQ |
+/// AAA_SCHED_PRIORITY)
+#define AAA_SCHED_FIFO      0  
+#define AAA_SCHED_WFQ       1
+#define AAA_SCHED_PRIORITY  2
+
+const unsigned maxNumPriority = 3;
+const unsigned maxMaxWeight = 3;
+
+/// Event.
+typedef int AAA_Event;
+
+/*! eventQueueJob Job with Event Queue 
+
+  This class defines a job with a single FIFO queue to
+  store events.
+
+*/
+/// This is the base class of "event queue job".  See \ref
+/// tagEventQueueJob for detailed information.
+typedef AAA_QueueJob<AAA_Event> AAA_EventQueueJob;
+
+/*! jobQueueJob Job with Job Queue 
+
+  This class defines a backlogging job with a single FIFO queue to
+  store pointers to jobs, which realizes hierarchically executed jobs.
+
+*/
+typedef AAA_QueueJob<AAA_Job*> AAA_JobQueueJob;
+
+
+
+typedef ACE_UINT16 AAA_SchedulingPolicy;
+
 
 /*! This class is used to generate a lightweight class from a given
  * class.  This template is borrowed from a book "Mordern C++ Design"
@@ -150,10 +185,24 @@ This is the base class of "job", is scheduled and served by a task.
 class AAA_Job
 {
   friend class AAA_JobDeleter;
+   /// Job name.
+  std::string name;
+  /// Indicates the priority of the job (1=highest priority)
+  unsigned int priority;
 
+  /// Indicates the weight of the job in the given priority.
+  unsigned int weight;
+  /// Opaque job ata
+  AAA_JobData* data;
+
+  /// Reference counter.  The value can be changed only via
+  /// JobDeleter's () operator.
+  ACE_Atomic_Op<ACE_Thread_Mutex, int> refcount;
+
+  
  public:
   /// Constructor.
-  AAA_Job(AAA_JobData *d=0, char* name=0) : data(d), priority(1), weight(1)
+  AAA_Job(AAA_JobData *d=NULL, char* name=NULL) : data(d), priority(1), weight(1)
   {
     if (name) this->name = std::string(name);
     refcount = 1;
@@ -217,32 +266,23 @@ class AAA_Job
   /// Schedule() method.
   virtual bool Running() { return true; }
 
-  bool operator==(AAA_Job* job) { return (this==job); }
+  bool operator==(AAA_Job* job) { 
+  	return (this.name == job.name &&
+  	        this.weight == job.weight &&
+  	        this.priority == job.priority);
+  	        }
 
-  bool operator!=(AAA_Job* job) { return (this!=job); }
+  bool operator!=(AAA_Job* job) {
+  	 return (this.name != job.name &&
+  	        this.weight != job.weight &&
+  	        this.priority != job.priority);
+  	        }
 
  protected:
-
   /// Virtual destructor.
   virtual ~AAA_Job() {}
 
- private:  
-
-  /// Job name.
-  std::string name;
-
-  /// Opaque job ata
-  AAA_JobData* data;
-
-  /// Reference counter.  The value can be changed only via
-  /// JobDeleter's () operator.
-  ACE_Atomic_Op<ACE_Thread_Mutex, int> refcount;
-
-  /// Indicates the priority of the job (1=highest priority)
-  unsigned priority;
-
-  /// Indicates the weight of the job in the given priority.
-  unsigned weight;
+ 
 };
 
 /*! jobHandle Handle to a Job
@@ -273,8 +313,7 @@ class AAA_JobDeleter
   static void Delete(AAA_Job *job) { job->Delete(); }
 };
 
-const unsigned maxNumPriority = 3;
-const unsigned maxMaxWeight = 3;
+
 
 /*! queueJob Job with Queue 
 
@@ -287,9 +326,54 @@ const unsigned maxMaxWeight = 3;
 template <class T, class LOCK = ACE_Thread_Mutex>
   class AAA_QueueJob : public AAA_Job
 {
+  inline unsigned Index(unsigned p)
+    {
+      p = (p>maxNumPriority) ? maxNumPriority : p;
+      return p-1;
+    }
+
+ inline unsigned Index(unsigned p, unsigned w)
+    {
+      p = (p>maxNumPriority) ? maxNumPriority : p;
+      w = (w>maxMaxWeight) ? maxMaxWeight : w;
+      return (p-1)*maxWeight + (w-1);
+    }
+
+ void AdjustIndexQueue(unsigned pIndex, unsigned dIndex)
+ {
+   std::list<unsigned> &iQueue = indexQueue[pIndex];
+   std::list<unsigned>::iterator i;
+   unsigned j=0;
+   for (i=iQueue.begin(); i!=iQueue.end()
+   ; )
+     {
+       if ((*i) == dIndex)
+	 i = (++j > dataQueue[dIndex].size()) ? iQueue.erase(i) : i++;
+       else
+	 i++;
+     }
+ }
+
+ unsigned numPriority;  // number of priority
+ unsigned maxWeight;    // maximum weight value
+
+ // This queue stores indexes for the dataQueue per priority.
+ boost::shared_array< std::list<unsigned> > indexQueue;
+
+ // This queue stores data for per priority and per weight 
+ boost::shared_array< std::list<T> > dataQueue;
+
+ unsigned total;
+
+ /// Used for synchronization among threads.
+ std::auto_ptr< ACE_Condition<LOCK> > cond;
+
+ /// Used for sending signal to waiting threads.
+ bool signaled;
+
  public:
   /// Constructor. 
-  AAA_QueueJob(AAA_JobData *d=0, char* name=0, 
+  AAA_QueueJob(AAA_JobData *d=NULL, char* name=NULL, 
 	       unsigned numPriority=1, unsigned maxWeight=1) throw (int)
  : AAA_Job(d, name), 
  numPriority(numPriority), maxWeight(maxWeight), total(0),
@@ -513,86 +597,11 @@ template <class T, class LOCK = ACE_Thread_Mutex>
  inline size_t MaxSize() { return (size_t)-1; }
 
  protected:
-
   /// lock associated with list
   LOCK lock;
 
- private:
-
-  inline unsigned Index(unsigned p)
-    {
-      p = (p>maxNumPriority) ? maxNumPriority : p;
-      return p-1;
-    }
-
- inline unsigned Index(unsigned p, unsigned w)
-    {
-      p = (p>maxNumPriority) ? maxNumPriority : p;
-      w = (w>maxMaxWeight) ? maxMaxWeight : w;
-      return (p-1)*maxWeight + (w-1);
-    }
-
- void AdjustIndexQueue(unsigned pIndex, unsigned dIndex)
- {
-   std::list<unsigned> &iQueue = indexQueue[pIndex];
-   std::list<unsigned>::iterator i;
-   unsigned j=0;
-   for (i=iQueue.begin(); i!=iQueue.end(); )
-     {
-       if ((*i) == dIndex)
-	 i = (++j > dataQueue[dIndex].size()) ? iQueue.erase(i) : i++;
-       else
-	 i++;
-     }
- }
-
- unsigned numPriority;  // number of priority
- unsigned maxWeight;    // maximum weight value
-
- // This queue stores indexes for the dataQueue per priority.
- boost::shared_array< std::list<unsigned> > indexQueue;
-
- // This queue stores data for per priority and per weight 
- boost::shared_array< std::list<T> > dataQueue;
-
- unsigned total;
-
- /// Used for synchronization among threads.
- std::auto_ptr< ACE_Condition<LOCK> > cond;
-
- /// Used for sending signal to waiting threads.
- bool signaled;
 };
 
-/// Event.
-typedef int AAA_Event;
-
-/*! eventQueueJob Job with Event Queue 
-
-  This class defines a job with a single FIFO queue to
-  store events.
-
-*/
-/// This is the base class of "event queue job".  See \ref
-/// tagEventQueueJob for detailed information.
-typedef AAA_QueueJob<AAA_Event> AAA_EventQueueJob;
-
-/*! jobQueueJob Job with Job Queue 
-
-  This class defines a backlogging job with a single FIFO queue to
-  store pointers to jobs, which realizes hierarchically executed jobs.
-
-*/
-typedef AAA_QueueJob<AAA_Job*> AAA_JobQueueJob;
-
-/// Scheduling policy.  AAA_SCHED_WFQ and AAA_SCHED_PRIORITY can be
-/// specified at the same time by specifying with (AAA_SCHED_WFQ |
-/// AAA_SCHED_PRIORITY)
-#define AAA_SCHED_FIFO      0  
-#define AAA_SCHED_WFQ       1
-#define AAA_SCHED_PRIORITY  2
-
-typedef ACE_UINT16 AAA_SchedulingPolicy;
 
 
 /*! \page groupedJob Grouped Job 
@@ -639,16 +648,58 @@ typedef ACE_UINT16 AAA_SchedulingPolicy;
 */
 class AAA_GroupedJob : public AAA_QueueJob<AAA_Job*, ACE_Thread_Mutex>
 {
+
+  /// Constructor for non-root job.
+   AAA_GroupedJob(AAA_Job &parent, 
+		  AAA_JobData* d, 
+		  char *name=NULL,
+  		  AAA_SchedulingPolicy policy=AAA_SCHED_FIFO,
+		  bool blocking=false, 
+		  unsigned numPriority=1, unsigned maxWeight=1)
+     : AAA_QueueJob<AAA_Job*, ACE_Thread_Mutex>(d, name, 
+						numPriority, maxWeight), 
+    parent(parent), policy(policy), running(false), blocking(blocking)
+  {
+    // Increment the reference counter of the parent.
+    parent.Acquire();
+  }
+
+  /// Constructor for root job.
+  AAA_GroupedJob(AAA_JobData* d=NULL, char *name=NULL,
+		 AAA_SchedulingPolicy policy=AAA_SCHED_FIFO, 
+		 bool blocking=false,
+		 unsigned numPriority=1, unsigned maxWeight=1)
+    : AAA_QueueJob<AAA_Job*, ACE_Thread_Mutex>(d, name,
+					       numPriority, maxWeight), 
+    parent(*this), policy(policy), running(false), blocking(blocking)
+  {}
+
+  /// Destructor.  This class is defined as a leaf class.
+  ~AAA_GroupedJob() { 
+    Stop(); 
+    if (!IsRoot())
+      parent.Release(); 
  public:
+         bool validate_ptr(void * validate) {
+         try {
+              AAA_JobData* data = (AAA_JobData*)validate;
+              return true; //1
+             }
+         catch(...){
+  	   }
+         return false; // 0
+        }
+ 
   /// Default constructor is prohibited.
   static AAA_GroupedJob* 
     Create(AAA_Job &parent, AAA_JobData* d, 
-	   char *name=0, 
+	   char *name=NULL, 
 	   AAA_SchedulingPolicy policy=AAA_SCHED_FIFO,
 	   bool blocking=false,
 	   unsigned numPriority=1, unsigned maxWeight=1) throw(AAA_Error)
   {
-    if (d==0)
+
+    if (validate_ptr(d) == false )
       {
 	FRAMEWORK_LOG(LM_ERROR, "AAA_JobData must be non-null.\n");
 	throw NoData;
@@ -658,12 +709,12 @@ class AAA_GroupedJob : public AAA_QueueJob<AAA_Job*, ACE_Thread_Mutex>
   }
 
   static AAA_GroupedJob* 
-    Create(AAA_JobData* d, char *name=0, 
+    Create(AAA_JobData* d, char *name=NULL, 
 	   AAA_SchedulingPolicy policy=AAA_SCHED_FIFO,
 	   bool blocking=false,
 	   unsigned numPriority=1, unsigned maxWeight=1) throw(AAA_Error)
   {
-    if (d==0)
+   if (validate_ptr(d) == false )
       {
 	FRAMEWORK_LOG(LM_ERROR, "AAA_JobData must be non-null.\n");
 	throw NoData;
@@ -760,38 +811,6 @@ class AAA_GroupedJob : public AAA_QueueJob<AAA_Job*, ACE_Thread_Mutex>
   }
 
  protected:
-
- private:
-  /// Constructor for non-root job.
-   AAA_GroupedJob(AAA_Job &parent, 
-		  AAA_JobData* d, 
-		  char *name=0,
-  		  AAA_SchedulingPolicy policy=AAA_SCHED_FIFO,
-		  bool blocking=false, 
-		  unsigned numPriority=1, unsigned maxWeight=1)
-     : AAA_QueueJob<AAA_Job*, ACE_Thread_Mutex>(d, name, 
-						numPriority, maxWeight), 
-    parent(parent), policy(policy), running(false), blocking(blocking)
-  {
-    // Increment the reference counter of the parent.
-    parent.Acquire();
-  }
-
-  /// Constructor for root job.
-  AAA_GroupedJob(AAA_JobData* d, char *name=0,
-		 AAA_SchedulingPolicy policy=AAA_SCHED_FIFO, 
-		 bool blocking=false,
-		 unsigned numPriority=1, unsigned maxWeight=1)
-    : AAA_QueueJob<AAA_Job*, ACE_Thread_Mutex>(d, name,
-					       numPriority, maxWeight), 
-    parent(*this), policy(policy), running(false), blocking(blocking)
-  {}
-
-  /// Destructor.  This class is defined as a leaf class.
-  ~AAA_GroupedJob() { 
-    Stop(); 
-    if (!IsRoot())
-      parent.Release(); 
   }
 
   /// Indicates whether this is the root job in a job hierarchy.
@@ -844,6 +863,50 @@ task is the root job of in a job hierarchy.
 /// information.
 class AAA_Task : public ACE_Task<ACE_MT_SYNCH>
 {
+  /// This function is reimplementation of virtual functions of
+  /// the parent class.
+  int svc()
+  {
+    mutex.acquire();
+    if (!reactor())
+      {
+	std::auto_ptr<ACE_Reactor> r(new ACE_Reactor);
+	reactor(r.get());
+	mutex.release();
+	cond->signal();
+	while (1) // Loop for timer thread loop.
+	  if (reactor()->handle_events() == -1)
+	    FRAMEWORK_LOG(LM_ERROR, "[%N] handle_events().\n", 
+			  Job().Name().c_str());
+	return 0;
+      }
+    mutex.release();
+    while (1)  // Loop for serving threads.
+      {
+	if (Job().Serve()<0)
+	  return 0;
+      }
+    return 0;
+  }
+  
+  int close(u_long flags=0) { 
+    return 0; 
+  }
+
+  int handle_timeout(const ACE_Time_Value &tv, const void *arg)
+  {
+    reactor(0);
+    ACE_Thread::exit();
+    return 0;
+  }
+
+  AAA_JobHandle<AAA_GroupedJob> handle;
+
+  /// Used for synchronization among threads.
+  std::auto_ptr< ACE_Condition<ACE_Mutex> > cond;
+
+  /// Used for synchronization among threads.
+  ACE_Mutex mutex;
 public:
 
   /// Constuctor.  The int parameter specifies the number of job
@@ -938,52 +1001,6 @@ public:
 
  protected:
 
- private:
-
-  /// This function is reimplementation of virtual functions of
-  /// the parent class.
-  int svc()
-  {
-    mutex.acquire();
-    if (!reactor())
-      {
-	std::auto_ptr<ACE_Reactor> r(new ACE_Reactor);
-	reactor(r.get());
-	mutex.release();
-	cond->signal();
-	while (1) // Loop for timer thread loop.
-	  if (reactor()->handle_events() == -1)
-	    FRAMEWORK_LOG(LM_ERROR, "[%N] handle_events().\n", 
-			  Job().Name().c_str());
-	return 0;
-      }
-    mutex.release();
-    while (1)  // Loop for serving threads.
-      {
-	if (Job().Serve()<0)
-	  return 0;
-      }
-    return 0;
-  }
-  
-  int close(u_long flags=0) { 
-    return 0; 
-  }
-
-  int handle_timeout(const ACE_Time_Value &tv, const void *arg)
-  {
-    reactor(0);
-    ACE_Thread::exit();
-    return 0;
-  }
-
-  AAA_JobHandle<AAA_GroupedJob> handle;
-
-  /// Used for synchronization among threads.
-  std::auto_ptr< ACE_Condition<ACE_Mutex> > cond;
-
-  /// Used for synchronization among threads.
-  ACE_Mutex mutex;
 };
 
 /*! \page State Machine
@@ -1214,6 +1231,7 @@ private:
 /// The base state machine class.  See \ref tagStateMachine
 class AAA_StateMachineBase
 {
+  std::string name;
 public:
   /// This function is used for starting the state machine.
   virtual void Start()=0;
@@ -1248,8 +1266,7 @@ protected:
   /// Overloaded by derived class's destractors.
   virtual ~AAA_StateMachineBase() {}
 
- private:
-  std::string name;
+ 
 };
 
 /// Abstract class for state machine with action argment type (see
@@ -1257,6 +1274,9 @@ protected:
 template <class ARG> 
 class AAA_StateMachine : public AAA_StateMachineBase
 {
+  /// If this value is false, no new event is not scheduled, but
+  /// already scheduled event will be executed.
+  bool running;
 public:
   /// Overloaded by derived class's destractors.
   virtual ~AAA_StateMachine() {}
@@ -1322,10 +1342,7 @@ protected:
   AAA_StateTable<ARG>& stateTable;
   AAA_State state;
   ARG& actionArg;
-private:
-  /// If this value is false, no new event is not scheduled, but
-  /// already scheduled event will be executed.
-  bool running;
+
 };
 
 /*! \page timerTypeAllocator Timer Type Allocator
@@ -1421,12 +1438,11 @@ public:
   // to protect against changes to ACE_Event_Handler
   class AAA_FsmTimerEventHandler : public ACE_Event_Handler
   {
-  public:
-    AAA_FsmTimerEventHandler(AAA_StateMachineWithTimer<ARG> &fsm)
-                             : fsm_ref(fsm) { }
-
-  private:
-    /// reimplementated from ACE_Event_Handler
+    ACE_Reactor& reactor;
+    TimerHandleMap timerHandleMap;
+    AAA_FsmTimerEventHandler timerEventHandler;
+      
+      /// reimplementated from ACE_Event_Handler
     int handle_timeout(const ACE_Time_Value &tv, const void *arg)
     {
       AAA_Event event = *(AAA_Event*)arg;
@@ -1439,6 +1455,10 @@ public:
       return (tv ? 0 : 0);
     }
     AAA_StateMachineWithTimer<ARG> &fsm_ref;
+  public:
+    AAA_FsmTimerEventHandler(AAA_StateMachineWithTimer<ARG> &fsm)
+                             : fsm_ref(fsm) { }
+ 
   };
     
   /// Constructor.  ACE_Reactor maintains the timer queue and is bound
@@ -1456,10 +1476,7 @@ public:
   /// occurs.
   virtual void Timeout(AAA_Event ev)=0;
 
-private:
-  ACE_Reactor& reactor;
-  TimerHandleMap timerHandleMap;
-  AAA_FsmTimerEventHandler timerEventHandler;
+
 };
 
 /*!
@@ -1468,7 +1485,7 @@ private:
  * Open Diameter logging facity derived directly from ACE
  */
 class AAALogMsg :
-    public ACE_Log_Msg
+public ACE_Log_Msg
 {
     friend class ACE_Singleton<AAALogMsg, ACE_Recursive_Thread_Mutex>;    /**< ACE logger */
 
