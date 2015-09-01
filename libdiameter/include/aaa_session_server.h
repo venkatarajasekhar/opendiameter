@@ -37,7 +37,7 @@
 #include "aaa_session.h"
 #include "aaa_session_auth_server_fsm.h"
 #include "aaa_session_acct_server_fsm.h"
-
+#include "aaa_session_server.inl"
 ///
 /// This class provides all the functionality of
 /// an Diameter client auth session. Applications
@@ -47,6 +47,7 @@
 class DIAMETERBASEPROTOCOL_EXPORT DiameterServerAuthSession :
     public DiameterAuthSession 
 {
+     DiameterAuthSessionServerStateMachine m_Fsm;
     public:
         DiameterServerAuthSession(AAA_Task &task,
                               diameter_unsigned32_t id);
@@ -82,8 +83,7 @@ class DIAMETERBASEPROTOCOL_EXPORT DiameterServerAuthSession :
         /// This function resets the current session attributes to default
         virtual AAAReturnCode Reset();
 
-    private:
-        DiameterAuthSessionServerStateMachine m_Fsm;
+    
 };
 
 ///
@@ -154,7 +154,7 @@ typedef ACE_Singleton<DiameterServerAcctSessionGC,
 #define DIAMETER_ACCT_SESSION_GC_ROOT() (DiameterServerAcctSessionGC_S::instance())
 #define DIAMETER_ACCT_SESSION_GC() (DiameterServerAcctSessionGC_S::instance()->Instance()) 
 
-#include "aaa_session_server.inl"
+
 
 #endif
 
