@@ -34,11 +34,13 @@
 #ifndef __AAA_SESSION_H__
 #define __AAA_SESSION_H__
 
+#include "aaa_session.inl"
 #include "framework.h"
 #include "aaa_data_defs.h"
 #include "aaa_session_attributes.h"
 #include "aaa_route_msg_router.h"
 #include "aaa_garbage_collector.h"
+
 
 class DIAMETERBASEPROTOCOL_EXPORT DiameterSessionIO :
     public AAA_JobData
@@ -155,18 +157,19 @@ class DiameterSession :
         virtual AAAReturnCode Reset();
 
         /// This function returns the current session attributes
-        ATTRIBUTE &Attributes() {
+        ATTRIBUTE& Attributes() {
             return m_Attributes;
         }
 
     protected:
+        
+        ATTRIBUTE m_Attributes;
         DiameterSession(diameter_unsigned32_t appId) {
            Reset();
            m_Attributes.ApplicationId() = appId;
 	}
 
-    protected:
-        ATTRIBUTE m_Attributes;
+   
 };
 
 class DIAMETERBASEPROTOCOL_EXPORT DiameterAuthSession :
@@ -228,7 +231,7 @@ class DIAMETERBASEPROTOCOL_EXPORT DiameterAuthSession :
 
     protected:
         DiameterAuthSession(diameter_unsigned32_t appId) : 
-		DiameterSession<DiameterAuthSessionAttributes>(appId) {
+	DiameterSession<DiameterAuthSessionAttributes>(appId) {
            m_Attributes.SessionTimeout() = DIAMETER_CFG_AUTH_SESSION()->sessionTm;
            m_Attributes.AuthLifetime() = DIAMETER_CFG_AUTH_SESSION()->lifetimeTm;
            m_Attributes.AuthGrace() = DIAMETER_CFG_AUTH_SESSION()->graceTm;
@@ -274,7 +277,7 @@ class DIAMETERBASEPROTOCOL_EXPORT DiameterAcctSession :
 
     protected:
         DiameterAcctSession(diameter_unsigned32_t appId) :
-		DiameterSession<DiameterAcctSessionAttributes>(appId) {
+	DiameterSession<DiameterAcctSessionAttributes>(appId) {
            m_Attributes.SessionTimeout() = DIAMETER_CFG_ACCT_SESSION()->sessionTm;
            m_Attributes.InterimInterval() = DIAMETER_CFG_ACCT_SESSION()->recIntervalTm;
            m_Attributes.RealtimeRequired() = DIAMETER_CFG_ACCT_SESSION()->realtime;
@@ -284,7 +287,7 @@ class DIAMETERBASEPROTOCOL_EXPORT DiameterAcctSession :
 	}
 };
 
-#include "aaa_session.inl"
+
 
 #endif
 
