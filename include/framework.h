@@ -184,6 +184,7 @@ This is the base class of "job", is scheduled and served by a task.
 /// information.
 class AAA_Job
 {
+ private: 	
   friend class AAA_JobDeleter;
    /// Job name.
   std::string name;
@@ -648,7 +649,7 @@ template <class T, class LOCK = ACE_Thread_Mutex>
 */
 class AAA_GroupedJob : public AAA_QueueJob<AAA_Job*, ACE_Thread_Mutex>
 {
-
+ private: 
   /// Constructor for non-root job.
    AAA_GroupedJob(AAA_Job &parent, 
 		  AAA_JobData* d, 
@@ -863,6 +864,7 @@ task is the root job of in a job hierarchy.
 /// information.
 class AAA_Task : public ACE_Task<ACE_MT_SYNCH>
 {
+  private:
   /// This function is reimplementation of virtual functions of
   /// the parent class.
   int svc()
@@ -1231,6 +1233,7 @@ private:
 /// The base state machine class.  See \ref tagStateMachine
 class AAA_StateMachineBase
 {
+  private:	
   std::string name;
 public:
   /// This function is used for starting the state machine.
@@ -1274,6 +1277,7 @@ protected:
 template <class ARG> 
 class AAA_StateMachine : public AAA_StateMachineBase
 {
+  private:
   /// If this value is false, no new event is not scheduled, but
   /// already scheduled event will be executed.
   bool running;
@@ -1355,6 +1359,7 @@ protected:
 /// Timer type allocator.  See \ref timerTypeAllocator.
 class AAA_TimerTypeAllocator_S
 {
+  private:	
   friend class ACE_Singleton<AAA_TimerTypeAllocator_S, 
     ACE_Recursive_Thread_Mutex>;
  public:
@@ -1438,6 +1443,7 @@ public:
   // to protect against changes to ACE_Event_Handler
   class AAA_FsmTimerEventHandler : public ACE_Event_Handler
   {
+    private:	
     ACE_Reactor& reactor;
     TimerHandleMap timerHandleMap;
     AAA_FsmTimerEventHandler timerEventHandler;
@@ -1487,7 +1493,8 @@ public:
 class AAALogMsg :
 public ACE_Log_Msg
 {
-    friend class ACE_Singleton<AAALogMsg, ACE_Recursive_Thread_Mutex>;    /**< ACE logger */
+   private:
+   friend class ACE_Singleton<AAALogMsg, ACE_Recursive_Thread_Mutex>;    /**< ACE logger */
 
     private:
         /*
