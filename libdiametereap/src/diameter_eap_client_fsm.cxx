@@ -41,26 +41,8 @@
 #include "diameter_eap_client_fsm.hxx"
 #include "diameter_eap_parser.hxx"
 
-class DiameterEapClientAction 
-  : public AAA_Action<DiameterEapClientStateMachine>
-{
-  virtual void operator()(DiameterEapClientStateMachine&)=0;
- protected:
-  DiameterEapClientAction() {}
-  ~DiameterEapClientAction() {}
-};
-
-/// State table used by DiameterEapClientStateMachine.
-class DiameterEapClientStateTable_S 
-  : public AAA_StateTable<DiameterEapClientStateMachine>
-{
-  friend class 
-  ACE_Singleton<DiameterEapClientStateTable_S, ACE_Recursive_Thread_Mutex>;
-
- private:
-  class AcSendEapRequest : public DiameterEapClientAction 
-  {
-    void operator()(DiameterEapClientStateMachine& sm)
+void DiameterEapClientStateTable_S::AcSendEapRequest
+ operator()(DiameterEapClientStateMachine& sm)
     {
       DiameterEapClientSession& session = sm.Session();
       AAA_LOG((LM_DEBUG, "[%N] forwarding EAP Request to passthrough.\n"));
@@ -71,11 +53,9 @@ class DiameterEapClientStateTable_S
       if (dea.MultiRoundTimeOut.IsSet())
 	sm.EnforceMultiRoundTimeOut(dea.MultiRoundTimeOut());
     }
-  };
+    
 
-  class AcSendDER : public DiameterEapClientAction 
-  {
-    void operator()(DiameterEapClientStateMachine& sm) 
+    void AcSendDER::operator()(DiameterEapClientStateMachine& sm) 
     { 
       AAA_LOG((LM_DEBUG, "[%N] sending DER.\n"));
       DER_Data& der = sm.DER();
@@ -85,7 +65,12 @@ class DiameterEapClientStateTable_S
       if (!der.DestinationRealm.IsSet())
 	{
 	  AAA_LOG((LM_ERROR, "Failed to set destination realm.\n"));
+	  try{
 	  sm.Event(DiameterEapClientStateMachine::EvSgDisconnect);
+	  }
+	  catch (DiameterParserError) {
+	  AAA_LOG((LM_ERROR, "Event Failed:.EvSgDisconnect\n"));	
+	  }
 	  return;
 	}
 
@@ -96,9 +81,12 @@ class DiameterEapClientStateTable_S
 	  sm.Event(DiameterEapClientStateMachine::EvSgDisconnect);
 	  return;
 	}
-
+      try{
       sm.SetNasPort(der.NasPort);
-
+      }
+      catch (DiameterParserError) {
+	  AAA_LOG((LM_ERROR, "Failed:Init of NasPort.\n"));	
+	  }
       sm.SetNasPortId(der.NasPortId);
 
       sm.SetOriginStateId(der.OriginStateId);
@@ -159,19 +147,17 @@ class DiameterEapClientStateTable_S
 
       sm.SendDER(); 
     }
-  };
 
-  class AcCheckDEA_ResultCode : public DiameterEapClientAction 
-  {
-    void operator()(DiameterEapClientStateMachine& sm)
+
+  
+    void AcCheckDEA_ResultCode::operator()(DiameterEapClientStateMachine& sm)
     {
       DiameterResultCode resultCode = sm.DEA().ResultCode();
       switch (resultCode)
 	{
 	case AAA_SUCCESS :
 	  AAA_LOG((LM_DEBUG, "[%N] AAA_SUCCESS received.\n"));
-	  if (sm.DER().AuthRequestType == 
-	      AUTH_REQUEST_TYPE_AUTHORIZE_AUTHENTICATE)
+	  if (sm.DER().AuthRequestType == AUTH_REQUEST_TYPE_AUTHORIZE_AUTHENTICATE)
 	    sm.Event(DiameterEapClientStateTable_S::EvSgSuccess);
 	  else
 	    sm.Event(DiameterEapClientStateTable_S::EvSgLimitedSuccess);
@@ -187,11 +173,9 @@ class DiameterEapClientStateTable_S
 	  break;
 	}
     }
-  };
+ 
 
-  class AcCheckAA_AnswerResultCode : public DiameterEapClientAction 
-  {
-    void operator()(DiameterEapClientStateMachine& sm)
+   void AcCheckAA_AnswerResultCode::operator()(DiameterEapClientStateMachine& sm)
     {
       DiameterResultCode resultCode = sm.DEA().ResultCode();
       switch (resultCode)
@@ -212,11 +196,7 @@ class DiameterEapClientStateTable_S
 	  break;
 	}
     }
-  };
-
-  class AcAccessAccept : public DiameterEapClientAction 
-  {
-    void operator()(DiameterEapClientStateMachine& sm)
+    void AcAccessAccept::operator()(DiameterEapClientStateMachine& sm)
     {
       DiameterEapClientSession& session = sm.Session();
       DEA_Data& dea = sm.DEA();
@@ -350,11 +330,9 @@ class DiameterEapClientStateTable_S
       if (dea.AccountingEapAuthMethod.IsSet())
 	sm.EnforceAccountingEapAuthMethod(dea.AccountingEapAuthMethod);
     }
-  };
-
-  class AcAccessReject : public DiameterEapClientAction 
-  {
-    void operator()(DiameterEapClientStateMachine& sm)
+ 
+ 
+    void AcAccessReject::operator()(DiameterEapClientStateMachine& sm)
     {
       DiameterEapClientSession& session = sm.Session();
       std::string str;
@@ -363,7 +341,7 @@ class DiameterEapClientStateTable_S
       sm.SignalFailure(str);
       session.Update(AAASession::EVENT_AUTH_FAILED);  
     }
-  };
+ 
 
   class AcSendAA_Request : public DiameterEapClientAction 
   {
@@ -392,36 +370,8 @@ class DiameterEapClientStateTable_S
     }
   };
 
-  enum state {
-    StInitialize,
-    StWaitDEA,
-    StCheckResultCode,
-    StAccepted,
-    StRejected,
-    StWaitEapResponse,
-    StWaitAA_Answer,
-    StTerminated
-  };
-
-  enum {
-    EvSgSuccess,
-    EvSgLimitedSuccess,
-    EvSgFailure,
-    EvSgContinue
-  };
-
-  AcSendDER acSendDER;
-  AcSendEapRequest acSendEapRequest;
-  AcCheckDEA_ResultCode acCheckDEA_ResultCode;
-  AcCheckAA_AnswerResultCode acCheckAA_AnswerResultCode;
-  AcAccessAccept acAccessAccept;
-  AcAccessReject acAccessReject;
-  AcSendAA_Request acSendAA_Request;
-  AcReauthenticate acReauthenticate;
-  AcDisconnect acDisconnect;
-
   // Defined as a leaf class
-  DiameterEapClientStateTable_S() 
+ void DiameterEapClientStateTable_S::DiameterEapClientStateTable_S() 
   {
     AddStateTableEntry(StInitialize, 
 		       DiameterEapClientStateMachine::EvRxEapResponse,
@@ -482,8 +432,7 @@ class DiameterEapClientStateTable_S
 
     InitialState(StInitialize);
   }
-  ~DiameterEapClientStateTable_S() {}
-};
+  
 
 typedef 
 ACE_Singleton<DiameterEapClientStateTable_S, ACE_Recursive_Thread_Mutex> 
