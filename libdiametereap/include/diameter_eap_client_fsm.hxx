@@ -43,8 +43,12 @@
 #define __EAP_CLIENT_FSM_H__
 
 #include "framework.h"
+#include <ace/Singleton.h>
+#include <ace/Atomic_Op_T.h>
 #include "diameter_eap_parser.hxx"
-
+#include "diameter_eap_client_session.hxx"
+#include "diameter_eap_client_fsm.hxx"
+#include "diameter_eap_parser.hxx"
 /*!
  * Windows specific export declarations
  */
@@ -59,7 +63,36 @@
    #define DIAMETER_EAP_CLIENT_EXPORTS
 #endif
 
+
+  AcSendDER acSendDER;
+  AcSendEapRequest acSendEapRequest;
+  AcCheckDEA_ResultCode acCheckDEA_ResultCode;
+  AcCheckAA_AnswerResultCode acCheckAA_AnswerResultCode;
+  AcAccessAccept acAccessAccept;
+  AcAccessReject acAccessReject;
+  AcSendAA_Request acSendAA_Request;
+  AcReauthenticate acReauthenticate;
+  AcDisconnect acDisconnect;
+  
 typedef AAA_JobHandle<AAA_GroupedJob> DiameterJobHandle;
+
+enum class Diameterstatus {
+    StInitialize,
+    StWaitDEA,
+    StCheckResultCode,
+    StAccepted,
+    StRejected,
+    StWaitEapResponse,
+    StWaitAA_Answer,
+    StTerminated
+  };
+
+  enum class DiameterEvent{
+    EvSgSuccess,
+    EvSgLimitedSuccess,
+    EvSgFailure,
+    EvSgContinue
+  };
 
 class DiameterEapClientSession;
 DiameterEapClientSession &session;
@@ -70,7 +103,58 @@ DiameterEapClientSession &session;
   /// DER and DEA packet data.
   DER_Data derData;
   DEA_Data deaData;
-  // XXX: AA_AnswerData aaAnswerData;
+  
+class DiameterEapClientAction 
+  : public AAA_Action<DiameterEapClientStateMachine>
+{
+  virtual void operator()(DiameterEapClientStateMachine&)=0;
+ protected:
+  DiameterEapClientAction() {}
+  ~DiameterEapClientAction() {}
+};
+
+class AcSendDER : public DiameterEapClientAction 
+  {
+    void operator()(DiameterEapClientStateMachine& sm);
+  };
+
+class AcCheckDEA_ResultCode : public DiameterEapClientAction 
+  {
+      void operator()(DiameterEapClientStateMachine& sm);
+  };
+  
+  class AcCheckAA_AnswerResultCode : public DiameterEapClientAction 
+  {
+    void operator()(DiameterEapClientStateMachine& sm);
+  };
+  
+  class AcAccessAccept : public DiameterEapClientAction 
+  {
+    void operator()(DiameterEapClientStateMachine& sm);
+  };
+  
+  class AcAccessReject : public DiameterEapClientAction 
+  {
+  	void operator()(DiameterEapClientStateMachine& sm);
+  };
+    
+ /// State table used by DiameterEapClientStateMachine.
+class DiameterEapClientStateTable_S 
+  : public AAA_StateTable<DiameterEapClientStateMachine>
+{
+  	
+  void DiameterEapClientStateTable_S(); 
+  friend class 
+  ACE_Singleton<DiameterEapClientStateTable_S, ACE_Recursive_Thread_Mutex>;
+ ~DiameterEapClientStateTable_S() {}
+ private:
+  class AcSendEapRequest : public DiameterEapClientAction 
+  {
+    void operator()(DiameterEapClientStateMachine& sm);
+  };
+  
+};
+   // XXX: AA_AnswerData aaAnswerData;
 
 /// State machine for Diameter EAP clients.  It has many member
 /// functions for enforcement of attributes (i.e., EnforceXYZ) and 
