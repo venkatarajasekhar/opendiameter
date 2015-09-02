@@ -43,7 +43,37 @@
 #include "diameter_eap_client_session.hxx"
 #include "diameter_eap_client_fsm.hxx"
 #include "diameter_eap_parser.hxx"
-
+ //Ctor : DiameterEapClientSession
+ 
+ DiameterEapClientSession::DiameterEapClientSession
+(AAAApplicationCore &appCore, DiameterJobHandle &h){
+   diameter_unsigned32_t EapApplicationId;
+   try{
+   AAAClientSession(appCore, EapApplicationId); //Base Ctor
+   }catch(...){
+      AAA_LOG((LM_ERROR, "[%N] Failed : Ctor AAAClientSession.\n"));
+       throw -1;
+    }
+    try{
+    DiameterEapClientStateMachine(*this, h);
+    }catch(...){
+        AAA_LOG((LM_ERROR, "[%N] Failed : Ctor DiameterEapClientStateMachine.\n"));
+       throw -1;
+    }
+    try{
+    answerHandler(DEA_Handler(appCore, *this));
+    }catch(...){
+        AAA_LOG((LM_ERROR, "[%N] Failed : Ctor answerHandler .\n"));
+       throw -1;
+    }
+  // Register the DEA message handler
+  if (RegisterMessageHandler(&answerHandler) != AAA_ERR_SUCCESS)
+    {
+      AAA_LOG((LM_ERROR, "[%N] DEA_Handler registration failed.\n"));
+      throw -1; // XXX
+    }
+}
+ 
 DiameterEapClientSession::DiameterEapClientSession
 (AAAApplicationCore &appCore, DiameterJobHandle &h)
   : AAAClientSession(appCore, EapApplicationId),
