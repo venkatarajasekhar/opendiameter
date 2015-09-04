@@ -292,7 +292,7 @@ class AAAEmptyClass {
  *    AAA_ERR_NOSERVICE - This code is returned if the service
  *                        cannot be provided
  */
-typedef enum {
+typedef enum class {
     AAA_ERR_NOT_FOUND    =     -2,
     AAA_ERR_FAILURE      =       -1,
     AAA_ERR_SUCCESS      =        0,
@@ -323,7 +323,7 @@ typedef enum {
  * The following are AVP data type codes. They correspond directly to
  * the AVP data types outline in the Diameter specification [1]:
  */
-typedef enum {
+typedef enum class {
     AAA_AVP_DATA_TYPE,
     AAA_AVP_STRING_TYPE,
     AAA_AVP_IPADDRESS_TYPE,
@@ -346,7 +346,7 @@ typedef enum {
  * address family
  * http://www.iana.org/assignments/address-family-numbers
  */
-typedef enum {
+typedef enum class {
     AAA_ADDR_FAMILY_RESERVED    = 0,   // Reserved
     AAA_ADDR_FAMILY_IPV4        = 1,   // IP (IP version 4)
     AAA_ADDR_FAMILY_IPV6        = 2,   // IP6 (IP version 6)
@@ -377,7 +377,7 @@ typedef enum {
 /*!
  * Parser type definitions
  */
-enum AAAAvpParseType {
+enum AAAAvpParseType class {
     AAA_PARSE_TYPE_FIXED_HEAD = 0,
     AAA_PARSE_TYPE_REQUIRED,
     AAA_PARSE_TYPE_OPTIONAL
@@ -398,7 +398,7 @@ typedef enum  {
  * The following error code is defined for
  * error type "AAA_PARSE_ERROR_TYPE_BUG"
  */
-typedef enum {
+typedef enum class {
     AAA_PARSE_ERROR_MISSING_CONTAINER = 1,
     AAA_PARSE_ERROR_TOO_MUCH_AVP_ENTRIES,
     AAA_PARSE_ERROR_TOO_LESS_AVP_ENTRIES,
@@ -414,7 +414,7 @@ typedef enum {
 /*!
  * values possible for Auth-Request-Type
  */
-typedef enum {
+typedef enum class {
     AUTH_REQUEST_TYPE_AUTHENTICATION_ONLY = 1,
     AUTH_REQUEST_TYPE_AUTHORIZE_ONLY = 2,
     AUTH_REQUEST_TYPE_AUTHORIZE_AUTHENTICATE = 3
@@ -423,7 +423,7 @@ typedef enum {
 /*!
  * values possible for network address type
  */
-typedef enum {
+typedef enum class {
     AAA_ADDRESS_RESERVED = 0,
     AAA_ADDRESS_IP,   // IP (IP version 4)
     AAA_ADDRESS_IP6,  // IP6 (IP version 6)
