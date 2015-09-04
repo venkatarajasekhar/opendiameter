@@ -71,6 +71,19 @@
 const unsigned maxNumPriority = 3;
 const unsigned maxMaxWeight = 3;
 
+typedef enum class {
+          DEFAULT_LOW  = 0,
+          DEFAULT_HIGH = 3,
+      }E_AAA_RangeValue;
+
+typedef enum class  { 
+		NoInitialState, 
+		FoundDuplicateStateTableEntry,
+		ActivationFailure,
+		TaskNotRunning,
+		NoData
+	}AAA_Error;
+
 /// Event.
 typedef int AAA_Event;
 
@@ -107,13 +120,7 @@ template <class T> struct Type2Type
 };
 
 /// Error codes used for the framework API
-enum AAA_Error { 
-		NoInitialState, 
-		FoundDuplicateStateTableEntry,
-		ActivationFailure,
-		TaskNotRunning,
-		NoData
-	};
+
 
 
 /*! \page guards Re-entrancy guards
@@ -1667,12 +1674,6 @@ class AAA_ProtectedPtrMap
 
 class AAA_RangedValue
 {
-   public:
-      typedef enum {
-          DEFAULT_LOW  = 0,
-          DEFAULT_HIGH = 3,
-      };
-
    public:
       AAA_RangedValue(int level = DEFAULT_LOW,
                       int low = DEFAULT_LOW, 
