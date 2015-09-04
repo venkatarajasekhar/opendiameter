@@ -36,6 +36,16 @@
 
 #include "aaad_config.h"
 
+ typedef enum class {
+	 SYSTEM,
+         FLAT,
+         NONE
+      } PASSWD_TYPE;
+
+
+
+
+
 class AAAD_UserEapArchieMethod
 {
    public:
@@ -54,12 +64,6 @@ class AAAD_UserEapArchieMethod
 
 class AAAD_UserEapMd5Method
 {
-   public:
-      typedef enum {
-	 SYSTEM,
-         FLAT,
-         NONE
-      } PASSWD_TYPE;
    public:
       std::string &Secret() {
 	 return m_Secret;
