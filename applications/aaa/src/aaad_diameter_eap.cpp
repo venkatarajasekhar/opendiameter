@@ -32,6 +32,7 @@
 /* END_COPYRIGHT                                                          */
 
 #include <fstream>
+#include <iostream>
 #include "aaad_diameter_eap.h"
 #include "aaad_user_db.h"
 
@@ -102,7 +103,7 @@ void AAAD_EapAuthMD5ChallengeStateMachine::InputPassphrase()
    }
 
    int pos;
-   const char *sysP;
+   const char *sysP = NULL;
    std::string user;
    std::string &pw = Passphrase();
    
