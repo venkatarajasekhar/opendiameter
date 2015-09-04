@@ -95,6 +95,45 @@ class DiameterEapServerSession;
 /// enforced value.  The former attributes are not enveloped with
 /// DiameterScholorAttribute or DiameterVectorAttribute since they are
 /// intended to be unmodified.
+
+ typedef class enum {
+ private :
+    EvSgStart = 0x9000 ,
+    EvRxEapRequest,
+    EvRxEapSuccess,
+    EvRxEapFailure,
+    EvSgAuthorizationSuccess,
+    EvSgAuthorizationFailure,
+    EvRxDER,
+    EvSgSessionTimeout,
+    EvSgAuthLifetimeTimeout,
+    EvSgAuthGracePeriodTimeout,
+    EvSgTimeout,
+    EvSgDisconnect,
+    EvSgValidDER,
+    EvSgInvalidDER
+  }DiaEventStatus;
+  
+ typedef class enum  {
+    StInitialize = 0x6500,
+    StWaitDER,
+    StCheckDER,
+    StWaitAuthorization,
+    StAccepted,
+    StRejected,
+    StWaitEapMsg,
+    StTerminated
+  }Diastatus;
+
+  typedef class enum {
+    EvSgSuccess = 0x6700,
+    EvSgLimitedSuccess,
+    EvSgFailure,
+    EvSgContinue,
+    EvSgValid,
+    EvSgInvalid
+  }DiaEventSg;
+
 class DIAMETER_EAP_SERVER_EXPORTS DiameterEapServerStateMachine 
   : public AAA_StateMachine<DiameterEapServerStateMachine>,
     public AAA_EventQueueJob
@@ -141,22 +180,7 @@ class DIAMETER_EAP_SERVER_EXPORTS DiameterEapServerStateMachine
     handle.Job().Remove(this); 
   }
 
-  typedef enum {
-    EvSgStart,
-    EvRxEapRequest,
-    EvRxEapSuccess,
-    EvRxEapFailure,
-    EvSgAuthorizationSuccess,
-    EvSgAuthorizationFailure,
-    EvRxDER,
-    EvSgSessionTimeout,
-    EvSgAuthLifetimeTimeout,
-    EvSgAuthGracePeriodTimeout,
-    EvSgTimeout,
-    EvSgDisconnect,
-    EvSgValidDER,
-    EvSgInvalidDER
-  }DiaEventStatus;
+ 
 
   /// Store an event and notify the session.
   inline void Notify(AAA_Event ev) throw (int) {
